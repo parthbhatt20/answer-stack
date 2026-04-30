@@ -12,6 +12,7 @@ function App() {
   const [status, setStatus] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [isSending, setIsSending] = useState(false);
   const isAuthenticated = Boolean(token);
   const tokenPreview = token ? `${token.slice(0, 18)}...${token.slice(-12)}` : "";
 
@@ -74,7 +75,14 @@ function App() {
   }
 
   async function send() {
-    if (!message.trim()) {
+    const outgoingMessage = message.trim();
+
+    if (isSending) {
+      setStatus("AnswerStack is still retrieving the previous answer");
+      return;
+    }
+
+    if (!outgoingMessage) {
       return;
     }
 
@@ -83,26 +91,42 @@ function App() {
       return;
     }
 
-    const userMessage = { role: "user", text: message };
+    const userMessage = { role: "user", text: outgoingMessage };
     setChat(prev => [...prev, userMessage]);
+    setMessage("");
+    setIsSending(true);
     setStatus("Waiting for AI response...");
 
-    const data = await authorizedFetch("/chat", {
-      method: "POST",
-      body: JSON.stringify({ message }),
-    });
+    try {
+      const data = await authorizedFetch("/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: outgoingMessage }),
+      });
 
-    setChat(prev => [
-      ...prev,
-      {
-        role: "bot",
-        text: data.answer || data.error,
-        sources: data.sources || [],
-        mode: data.mode || "unknown",
-      },
-    ]);
-    setMessage("");
-    setStatus("Response received");
+      setChat(prev => [
+        ...prev,
+        {
+          role: "bot",
+          text: data.answer || data.error,
+          sources: data.sources || [],
+          mode: data.mode || "unknown",
+        },
+      ]);
+      setStatus("Response received");
+    } catch (error) {
+      setChat(prev => [
+        ...prev,
+        {
+          role: "bot",
+          text: error.message || "Could not retrieve an answer",
+          sources: [],
+          mode: "error",
+        },
+      ]);
+      setStatus("Answer retrieval failed");
+    } finally {
+      setIsSending(false);
+    }
   }
 
   async function uploadDocument() {
@@ -159,33 +183,56 @@ function App() {
     }
   }
 
+  const indexedCount = documents.filter(document => document.status === "indexed").length;
+  const totalChunks = documents.reduce((total, document) => total + Number(document.chunks || 0), 0);
+
   return (
     <main className="app-shell">
-      <section className="card">
-        <p className="eyebrow">AI RAG Chatbot</p>
-        <h1>Full demo source</h1>
+      <section className="hero-panel">
+        <div className="brand-lockup">
+          <span className="brand-mark">AS</span>
+          <div>
+            <p className="eyebrow">AnswerStack</p>
+            <h1>Ask your documents anything.</h1>
+          </div>
+        </div>
         <p className="subtle">
           {isAuthenticated
-            ? "Upload a document and ask grounded questions against the indexed content."
-            : "Register or log in to open the document upload and chat workspace. This demo also reflects the common path from an LLM API prototype to RAG limits, retrieval bottlenecks, and eventually multi-agent orchestration needs that many teams were never staffed to own."}
+            ? "Your retrieval workspace is live. Upload files, stack context, and ask questions with grounded sources."
+            : "A document Q&A playground with uploads, retrieval, source snippets, and a full-stack RAG flow behind the glass."}
         </p>
+
+        <div className="signal-grid">
+          <div className="signal-card hot">
+            <span>Mode</span>
+            <strong>{isAuthenticated ? "Workspace" : "Gateway"}</strong>
+          </div>
+          <div className="signal-card mint">
+            <span>Documents</span>
+            <strong>{documents.length}</strong>
+          </div>
+          <div className="signal-card violet">
+            <span>Chunks</span>
+            <strong>{totalChunks}</strong>
+          </div>
+        </div>
 
         {isAuthenticated ? (
           <>
             <div className="session-bar">
-              <span>Signed in as {email}</span>
-              <button onClick={logout}>Logout</button>
+              <span>Signed in as <strong>{email}</strong></span>
+              <button className="ghost-button" onClick={logout}>Logout</button>
             </div>
             <div className="token-panel">
               <div className="token-copy">
                 <strong>Debug Token</strong>
                 <code>{tokenPreview}</code>
               </div>
-              <button onClick={copyToken}>Copy Token</button>
+              <button className="mini-button" onClick={copyToken}>Copy</button>
             </div>
           </>
         ) : (
-          <>
+          <div className="auth-panel">
             <div className="grid">
               <input
                 value={email}
@@ -201,94 +248,117 @@ function App() {
             </div>
 
             <div className="actions">
-              <button onClick={register}>Register</button>
+              <button className="ghost-button" onClick={register}>Register</button>
               <button onClick={login}>Login</button>
             </div>
-          </>
+          </div>
         )}
 
-        <p className="status">{status}</p>
+        <p className={`status ${status ? "is-visible" : ""}`}>{status || "System ready"}</p>
 
         {isAuthenticated ? (
-          <>
-            <div className="uploader">
-              <label className="file-picker">
-                <span>Select document</span>
-                <input
-                  type="file"
-                  accept={ACCEPTED_FILE_TYPES}
-                  onChange={event => {
-                    const file = event.target.files?.[0] || null;
-                    setSelectedFile(file);
-                    setStatus(file ? `${file.name} ready to upload` : "No file selected");
-                  }}
-                />
-              </label>
-              <p className="helper">
-                Supported uploads: `.txt`, `.md`, `.json`, `.csv`, `.pdf`, and `.docx`.
-              </p>
-              <div className="file-summary">
-                {selectedFile ? (
-                  <span>
-                    {selectedFile.name} • {Math.max(1, Math.round(selectedFile.size / 1024))} KB
-                  </span>
+          <div className="workspace-grid">
+            <aside className="control-deck">
+              <div className="panel-heading">
+                <span className="panel-kicker">Context Lab</span>
+                <h2>Stack files</h2>
+              </div>
+              <div className="uploader">
+                <label className="file-picker">
+                  <span>Select document</span>
+                  <input
+                    type="file"
+                    accept={ACCEPTED_FILE_TYPES}
+                    onChange={event => {
+                      const file = event.target.files?.[0] || null;
+                      setSelectedFile(file);
+                      setStatus(file ? `${file.name} ready to upload` : "No file selected");
+                    }}
+                  />
+                </label>
+                <p className="helper">TXT, MD, JSON, CSV, PDF, and DOCX are welcome here.</p>
+                <div className="file-summary">
+                  {selectedFile ? (
+                    <span>
+                      {selectedFile.name} / {Math.max(1, Math.round(selectedFile.size / 1024))} KB
+                    </span>
+                  ) : (
+                    <span>Drop a brainy file into the stack.</span>
+                  )}
+                </div>
+                <button onClick={uploadDocument}>
+                  {selectedFile ? "Index Document" : "Upload Document"}
+                </button>
+              </div>
+
+              <div className="documents">
+                <div className="panel-heading compact">
+                  <span className="panel-kicker">{indexedCount} indexed</span>
+                  <h2>Documents</h2>
+                </div>
+                {documents.length === 0 ? (
+                  <p className="empty">No documents yet. Upload one and the chat gets smarter.</p>
                 ) : (
-                  <span>No file selected</span>
+                  documents.map(document => (
+                    <div className="document-row" key={document.id}>
+                      <strong>{document.filename}</strong>
+                      <span>
+                        {document.status} / {document.chunks} chunks / {Math.max(1, Math.round((document.originalLength || 0) / 1024))} KB text
+                      </span>
+                    </div>
+                  ))
                 )}
               </div>
-              <button onClick={uploadDocument}>
-                {selectedFile ? `Upload ${selectedFile.name}` : "Upload Document"}
-              </button>
-            </div>
+            </aside>
 
-            <div className="documents">
-              <h2>Indexed Documents</h2>
-              {documents.length === 0 ? (
-                <p className="empty">No uploaded documents yet.</p>
-              ) : (
-                documents.map(document => (
-                  <div className="document-row" key={document.id}>
-                    <strong>{document.filename}</strong>
-                    <span>
-                      {document.status} • {document.chunks} chunks • {Math.max(1, Math.round((document.originalLength || 0) / 1024))} KB text
-                    </span>
+            <section className="chat-stage">
+              <div className="panel-heading">
+                <span className="panel-kicker">Grounded Chat</span>
+                <h2>Query console</h2>
+              </div>
+              <div className="chatbox">
+                {chat.length === 0 ? (
+                  <div className="empty-chat">
+                    <strong>Ready for your first question.</strong>
+                    <span>Try asking about a term, process, or decision inside an uploaded file.</span>
                   </div>
-                ))
-              )}
-            </div>
+                ) : (
+                  chat.map((entry, index) => (
+                    <div className={`message ${entry.role}`} key={`${entry.role}-${index}`}>
+                      <strong>{entry.role === "bot" ? "AnswerStack" : "You"}</strong>
+                      <span>{entry.text}</span>
+                      {entry.sources?.length > 0 ? (
+                        <small>
+                          Sources: {entry.sources.map(source => source.filename).join(", ")}
+                        </small>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
 
-            <div className="chatbox">
-              {chat.length === 0 ? (
-                <p className="empty">No messages yet.</p>
-              ) : (
-                chat.map((entry, index) => (
-                  <div className={`message ${entry.role}`} key={`${entry.role}-${index}`}>
-                    <strong>{entry.role}</strong>
-                    <span>{entry.text}</span>
-                    {entry.sources?.length > 0 ? (
-                      <small>
-                        Sources: {entry.sources.map(source => source.filename).join(", ")}
-                      </small>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="composer">
-              <input
-                value={message}
-                onChange={event => setMessage(event.target.value)}
-                onKeyDown={event => {
-                  if (event.key === "Enter") {
-                    send();
-                  }
-                }}
-                placeholder="Ask a question..."
-              />
-              <button onClick={send}>Send</button>
-            </div>
-          </>
+              <div className="composer">
+                <input
+                  value={message}
+                  onChange={event => setMessage(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === "Enter" && !isSending) {
+                      send();
+                    }
+                  }}
+                  disabled={isSending}
+                  placeholder="Ask a question..."
+                />
+                <button
+                  className={isSending ? "is-busy" : ""}
+                  disabled={isSending || !message.trim()}
+                  onClick={send}
+                >
+                  {isSending ? "Retrieving..." : "Send"}
+                </button>
+              </div>
+            </section>
+          </div>
         ) : null}
       </section>
     </main>

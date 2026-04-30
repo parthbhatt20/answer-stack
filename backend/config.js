@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
 export const config = {
   port: Number(process.env.PORT || 3000),
   jwtSecret: process.env.JWT_SECRET || "dev-secret",
@@ -11,6 +15,8 @@ export const config = {
   redisUrl: process.env.REDIS_URL || "",
   queueName: process.env.INGEST_QUEUE_NAME || "document-ingestion",
   maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 50),
+  databaseUrl: process.env.DATABASE_URL || "",
+  documentStorePath: process.env.DOCUMENT_STORE_PATH || `${process.cwd()}/data/documents.json`,
 };
 
 export function hasRealRagProviders() {

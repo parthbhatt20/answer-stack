@@ -8,6 +8,8 @@ The project is designed to work in two modes: a local demo mode that runs withou
 - RAG-based document Q&A with source snippets
 - User authentication with JWT
 - Multi-user document isolation
+- PostgreSQL-backed user storage
+- Persistent document metadata and chunks with a Docker volume
 - File upload and text extraction for common document formats
 - Document chunking and retrieval before answer generation
 - Demo mode with in-memory indexing and local keyword search
@@ -27,11 +29,27 @@ Backend health check: `http://localhost:3000/health`
 
 ## Demo Mode
 Set `DEMO_MODE=true` to run the full flow without any external secret. In demo mode:
-- uploads are chunked and indexed in memory
+- uploads are chunked and saved to a local JSON-backed document store
 - retrieval is done with a local keyword scorer
 - chat responses include grounded snippets from uploaded documents
 
 Set `DEMO_MODE=false` and provide OpenAI + Pinecone credentials to use managed embeddings and LLM responses.
+
+## Persistence
+AnswerStack stores registered users in PostgreSQL. New user passwords are saved as salted hashes.
+
+Uploaded document records and chunks are stored in a JSON file controlled by `DOCUMENT_STORE_PATH`.
+
+With Docker Compose, the backend mounts a named volume at `/app/data`, so the default path below survives container restarts and rebuilds:
+
+```env
+DOCUMENT_STORE_PATH=/app/data/documents.json
+DATABASE_URL=postgres://answerstack:answerstack@postgres:5432/answerstack
+```
+
+With Docker Compose, Postgres uses a named `postgres-data` volume, so registered users survive container restarts and rebuilds.
+
+When `DEMO_MODE=false`, vector search uses Pinecone while document records and chunk metadata remain persisted locally. For production deployments, you can move the document store into Postgres too.
 
 ## How It Works
 1. A user registers or logs in with JWT authentication.
@@ -63,7 +81,7 @@ The default backend upload limit is `50 MB`, configurable with `MAX_UPLOAD_SIZE_
 ## Tech Stack
 - **Frontend:** React, Vite
 - **Backend:** Node.js, Express
-- **Auth:** JWT
+- **Auth:** JWT, PostgreSQL
 - **Queue:** Redis, BullMQ
 - **AI/RAG:** OpenAI, Pinecone, local demo retrieval
 - **Deployment:** Docker, Docker Compose

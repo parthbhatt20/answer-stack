@@ -1,7 +1,56 @@
+import fs from "node:fs";
+import path from "node:path";
+import { config } from "../config.js";
+
 const documents = new Map();
+const storePath = config.documentStorePath;
+
+function loadDocuments() {
+  try {
+    if (!fs.existsSync(storePath)) {
+      return;
+    }
+
+    const raw = fs.readFileSync(storePath, "utf8");
+    if (!raw.trim()) {
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    const records = Array.isArray(parsed) ? parsed : parsed.documents || [];
+
+    records.forEach(record => {
+      if (record?.id) {
+        documents.set(record.id, record);
+      }
+    });
+
+    console.log(`[document-store] loaded ${documents.size} documents from ${storePath}`);
+  } catch (error) {
+    console.error(`[document-store] could not load ${storePath}: ${error.message}`);
+  }
+}
+
+function persistDocuments() {
+  const directory = path.dirname(storePath);
+  fs.mkdirSync(directory, { recursive: true });
+
+  const payload = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    documents: [...documents.values()],
+  };
+
+  const tempPath = `${storePath}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(payload, null, 2));
+  fs.renameSync(tempPath, storePath);
+}
+
+loadDocuments();
 
 export function saveDocumentRecord(record) {
   documents.set(record.id, record);
+  persistDocuments();
   return record;
 }
 
@@ -27,6 +76,7 @@ export function updateDocumentRecord(id, updates) {
 
   const next = { ...existing, ...updates };
   documents.set(id, next);
+  persistDocuments();
   return next;
 }
 
