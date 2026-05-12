@@ -78,7 +78,7 @@ function App() {
     const outgoingMessage = message.trim();
 
     if (isSending) {
-      setStatus("AnswerStack is still retrieving the previous answer");
+      setStatus("answer-stack is still retrieving the previous answer");
       return;
     }
 
@@ -192,7 +192,7 @@ function App() {
         <div className="brand-lockup">
           <span className="brand-mark">AS</span>
           <div>
-            <p className="eyebrow">AnswerStack</p>
+            <p className="eyebrow">answer-stack</p>
             <h1>Ask your documents anything.</h1>
           </div>
         </div>
@@ -325,7 +325,7 @@ function App() {
                 ) : (
                   chat.map((entry, index) => (
                     <div className={`message ${entry.role}`} key={`${entry.role}-${index}`}>
-                      <strong>{entry.role === "bot" ? "AnswerStack" : "You"}</strong>
+                      <strong>{entry.role === "bot" ? "answer-stack" : "You"}</strong>
                       <span>{entry.text}</span>
                       {entry.sources?.length > 0 ? (
                         <small>

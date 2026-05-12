@@ -1,6 +1,6 @@
-# AnswerStack
+# answer-stack
 
-AnswerStack is a full-stack Retrieval-Augmented Generation (RAG) chatbot application that lets users upload documents and ask questions grounded in those files. It combines a React chat interface, an Express API, document parsing, chunking, vector retrieval, and LLM-based answering into one Dockerized project.
+answer-stack is a full-stack Retrieval-Augmented Generation (RAG) chatbot application that lets users upload documents and ask questions grounded in those files. It combines a React chat interface, an Express API, document parsing, chunking, vector retrieval, and LLM-based answering into one Dockerized project.
 
 The project is designed to work in two modes: a local demo mode that runs without external API keys, and a managed mode that can use OpenAI for embeddings/answers and Pinecone for vector search. This makes it useful both as a portfolio-ready GitHub project and as a foundation for building document Q&A, internal knowledge base, support assistant, or research assistant workflows.
 
@@ -36,7 +36,7 @@ Set `DEMO_MODE=true` to run the full flow without any external secret. In demo m
 Set `DEMO_MODE=false` and provide OpenAI + Pinecone credentials to use managed embeddings and LLM responses.
 
 ## Persistence
-AnswerStack stores registered users in PostgreSQL. New user passwords are saved as salted hashes.
+answer-stack stores registered users in PostgreSQL. New user passwords are saved as salted hashes.
 
 Uploaded document records and chunks are stored in a JSON file controlled by `DOCUMENT_STORE_PATH`.
 
@@ -56,7 +56,7 @@ When `DEMO_MODE=false`, vector search uses Pinecone while document records and c
 2. The user uploads a supported document.
 3. The backend extracts readable text from the file.
 4. The text is split into chunks and indexed.
-5. When the user asks a question, AnswerStack retrieves relevant chunks.
+5. When the user asks a question, answer-stack retrieves relevant chunks.
 6. The chatbot returns an answer grounded in the retrieved document context.
 
 ## Supported Uploads
